@@ -56,7 +56,7 @@ fn unique_and_overwrite(capacity: usize) {
 }
 
 fn main() {
-    let matches = App::new("uq")
+    let matches = App::new("uq (lostutils)")
         .arg(
             Arg::with_name("capacity")
                 .short("n")
