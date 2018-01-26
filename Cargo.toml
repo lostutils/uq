@@ -3,6 +3,7 @@ name = "uq"
 version = "0.1.0"
 authors = ["Tamir Bahar"]
 homepage = "https://github.com/lostutils/uq"
+license = "MIT"
 
 [dependencies]
 clap = "2.29.2" 
