@@ -5,3 +5,4 @@ authors = ["Tamir Bahar"]
 homepage = "https://github.com/lostutils/uq"
 
 [dependencies]
+clap = "2.29.2" 
