@@ -8,3 +8,7 @@ description = "sort | uniq alternative."
 
 [dependencies]
 clap = "2.29.2" 
+
+[[bin]]
+name = "uq"
+path = "src/main.rs"
