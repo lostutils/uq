@@ -23,15 +23,23 @@ fn stdin_reader() -> StdinReader {
     StdinReader {}
 }
 
-fn unique_and_die(capacity: Option<usize>) {
+fn unique() {
     let mut lines = HashSet::new();
 
     for line in stdin_reader() {
         if lines.insert(line.clone()) {
-            if let Some(capacity) = capacity {
-                if lines.len() > capacity {
-                    panic!("Cache capacity exceeded!");
-                }
+            print!("{}", line);
+        }
+    }
+}
+
+fn unique_and_die(capacity: usize) {
+    let mut lines = HashSet::new();
+
+    for line in stdin_reader() {
+        if lines.insert(line.clone()) {
+            if lines.len() > capacity {
+                panic!("Cache capacity exceeded!");
             }
 
             print!("{}", line);
@@ -60,12 +68,15 @@ fn main() {
         .arg(
             Arg::with_name("capacity")
                 .short("n")
+                .help("Number of unique entries to remember.")
                 .value_name("capacity")
                 .takes_value(true),
         )
         .arg(
             Arg::with_name("override")
                 .short("r")
+                .help("Override old unique entries when capacity reached.\nWhen not used, uq will die when the capacity is exceeded.")
+                .requires("capacity")
                 .value_name("override")
                 .takes_value(false),
         )
@@ -79,13 +90,9 @@ fn main() {
         None => None,
     };
 
-    if matches.is_present("override") {
-        if let Some(capacity) = capacity {
-            unique_and_overwrite(capacity);
-        } else {
-            panic!("Override requires capacity!");
-        }
-    } else {
-        unique_and_die(capacity);
+    match (capacity, matches.is_present("override")) {
+        (Some(capacity), true) => unique_and_overwrite(capacity),
+        (Some(capacity), false) => unique_and_die(capacity),
+        _ => unique(),
     }
 }
