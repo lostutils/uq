@@ -60,30 +60,6 @@ fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&String) -> bool> {
     });
 }
 
-fn unique() {
-    let mut filter_obj = unique_filter();
-
-    for line in stdin_reader().filter(|x| filter_obj(&x)) {
-        print!("{}", line);
-    }
-}
-
-fn unique_and_die(capacity: usize) {
-    let mut filter_obj = unique_filter_with_cap(capacity);
-
-    for line in stdin_reader().filter(|x| filter_obj(&x)) {
-        print!("{}", line);
-    }
-}
-
-fn unique_and_overwrite(capacity: usize) {
-    let mut filter_obj = unique_filter_with_override(capacity);
-
-    for line in stdin_reader().filter(|x| filter_obj(&x)) {
-        print!("{}", line);
-    }
-}
-
 fn main() {
     let matches = App::new("uq (lostutils)")
         .arg(
@@ -111,9 +87,13 @@ fn main() {
         None => None,
     };
 
-    match (capacity, matches.is_present("override")) {
-        (Some(capacity), true) => unique_and_overwrite(capacity),
-        (Some(capacity), false) => unique_and_die(capacity),
-        _ => unique(),
+    let mut unique_filter = match (capacity, matches.is_present("override")) {
+        (Some(capacity), true) => unique_filter_with_override(capacity),
+        (Some(capacity), false) => unique_filter_with_cap(capacity),
+        _ => unique_filter(),
+    };
+
+    for line in stdin_reader().filter(|line| unique_filter(&line)) {
+        print!("{}", line);
     }
 }
