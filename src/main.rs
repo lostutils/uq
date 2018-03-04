@@ -23,104 +23,63 @@ fn stdin_reader() -> StdinReader {
     StdinReader {}
 }
 
-trait UniqueTest {
-    fn is_unique(&mut self, line: &String) -> bool;
+fn unique_filter() -> Box<FnMut(&String) -> bool> {
+    let mut lines: HashSet<String> = HashSet::new();
+
+    return Box::new(move |line| lines.insert(line.clone()));
 }
 
-struct UnlimitedUnique {
-    lines: HashSet<String>,
-}
+fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&String) -> bool> {
+    let mut lines: HashSet<String> = HashSet::new();
 
-impl UnlimitedUnique {
-    fn new() -> Self {
-        UnlimitedUnique {
-            lines: HashSet::new(),
-        }
-    }
-}
-
-impl UniqueTest for UnlimitedUnique {
-    fn is_unique(&mut self, line: &String) -> bool {
-        self.lines.insert(line.clone())
-    }
-}
-
-struct CapacityUnique {
-    lines: HashSet<String>,
-    capacity: usize,
-}
-
-impl CapacityUnique {
-    fn new(capacity: usize) -> Self {
-        CapacityUnique {
-            lines: HashSet::new(),
-            capacity: capacity,
-        }
-    }
-}
-
-impl UniqueTest for CapacityUnique {
-    fn is_unique(&mut self, line: &String) -> bool {
-        if self.lines.insert(line.clone()) {
-            if self.lines.len() > self.capacity {
+    return Box::new(move |line| {
+        if lines.insert(line.clone()) {
+            if lines.len() > capacity {
                 panic!("Cache capacity exceeded!");
             }
             return true;
         }
         return false;
-    }
+    });
 }
 
-struct OverrideUnique {
-    capacity: usize,
-    set: HashSet<String>,
-    queue: VecDeque<String>,
-}
+fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&String) -> bool> {
+    let mut set = HashSet::new();
+    let mut queue = VecDeque::new();
 
-impl OverrideUnique {
-    fn new(capacity: usize) -> Self {
-        OverrideUnique {
-            set: HashSet::new(),
-            capacity: capacity,
-            queue: VecDeque::new(),
-        }
-    }
-}
-
-impl UniqueTest for OverrideUnique {
-    fn is_unique(&mut self, line: &String) -> bool {
-        if self.set.insert(line.clone()) {
-            if self.set.len() > self.capacity {
-                self.set.remove(&self.queue.pop_front().unwrap());
+    return Box::new(move |line| {
+        if set.insert(line.clone()) {
+            if set.len() > capacity {
+                set.remove(&queue.pop_front().unwrap());
             }
 
-            self.queue.push_back(line.clone());
+            queue.push_back(line.clone());
             return true;
         }
         return false;
-    }
+    });
 }
 
 fn unique() {
-    let mut filter_obj = UnlimitedUnique::new();
+    let mut filter_obj = unique_filter();
 
-    for line in stdin_reader().filter(|x| filter_obj.is_unique(&x)) {
+    for line in stdin_reader().filter(|x| filter_obj(&x)) {
         print!("{}", line);
     }
 }
 
 fn unique_and_die(capacity: usize) {
-    let mut filter_obj = CapacityUnique::new(capacity);
+    let mut filter_obj = unique_filter_with_cap(capacity);
 
-    for line in stdin_reader().filter(|x| filter_obj.is_unique(&x)) {
+    for line in stdin_reader().filter(|x| filter_obj(&x)) {
         print!("{}", line);
     }
 }
 
 fn unique_and_overwrite(capacity: usize) {
-    let mut filter_obj = OverrideUnique::new(capacity);
+    let mut filter_obj = unique_filter_with_override(capacity);
 
-    for line in stdin_reader().filter(|x| filter_obj.is_unique(&x)) {
+    for line in stdin_reader().filter(|x| filter_obj(&x)) {
         print!("{}", line);
     }
 }
