@@ -5,6 +5,7 @@ authors = ["Tamir Bahar"]
 homepage = "https://github.com/lostutils/uq"
 license = "MIT"
 description = "sort | uniq alternative."
+readme = "README.md"
 
 [dependencies]
 clap = "2.29.2" 
