@@ -2,7 +2,7 @@
 name = "uq"
 version = "0.1.2"
 authors = ["Tamir Bahar"]
-homepage = "https://github.com/lostutils/uq"
+repository = "https://github.com/lostutils/uq"
 license = "MIT"
 description = "sort | uniq alternative."
 readme = "README.md"
