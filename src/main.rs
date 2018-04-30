@@ -3,24 +3,25 @@ use clap::{App, Arg};
 
 use std::collections::{HashSet, VecDeque};
 
-struct StdinReader;
+struct StdinReader {
+    buffer: String,
+}
 
-impl Iterator for StdinReader {
-    type Item = String;
+impl StdinReader {
+    fn new() -> Self {
+        Self {
+            buffer: String::new(),
+        }
+    }
 
-    fn next(&mut self) -> Option<String> {
-        let mut line = String::new();
-
-        match std::io::stdin().read_line(&mut line) {
+    fn next_line(&mut self) -> Option<&String> {
+        self.buffer.clear();
+        match std::io::stdin().read_line(&mut self.buffer) {
             Ok(0) => None,
-            Ok(_) => Some(line),
+            Ok(_) => Some(&self.buffer),
             Err(e) => panic!("Failed reading line: {}", e),
         }
     }
-}
-
-fn stdin_reader() -> StdinReader {
-    StdinReader {}
 }
 
 fn unique_filter() -> Box<FnMut(&String) -> bool> {
@@ -93,7 +94,10 @@ fn main() {
         _ => unique_filter(),
     };
 
-    for line in stdin_reader().filter(|line| unique_filter(&line)) {
-        print!("{}", line);
+    let mut stdin_reader = StdinReader::new();
+    while let Some(line) = stdin_reader.next_line() {
+        if unique_filter(line) {
+            print!("{}", line);
+        }
     }
 }
