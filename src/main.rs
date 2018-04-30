@@ -2,21 +2,24 @@ extern crate clap;
 use clap::{App, Arg};
 
 use std::collections::{HashSet, VecDeque};
+use std::io::{BufRead, StdinLock, Write};
 
-struct StdinReader {
+struct StdinReader<'a> {
     buffer: String,
+    input: StdinLock<'a>,
 }
 
-impl StdinReader {
-    fn new() -> Self {
+impl<'a> StdinReader<'a> {
+    fn new(input: StdinLock<'a>) -> Self {
         Self {
             buffer: String::new(),
+            input: input,
         }
     }
 
     fn next_line(&mut self) -> Option<&String> {
         self.buffer.clear();
-        match std::io::stdin().read_line(&mut self.buffer) {
+        match self.input.read_line(&mut self.buffer) {
             Ok(0) => None,
             Ok(_) => Some(&self.buffer),
             Err(e) => panic!("Failed reading line: {}", e),
@@ -94,10 +97,13 @@ fn main() {
         _ => unique_filter(),
     };
 
-    let mut stdin_reader = StdinReader::new();
+    let (_in, _out) = (std::io::stdin(), std::io::stdout());
+    let (input, mut output) = (_in.lock(), _out.lock());
+
+    let mut stdin_reader = StdinReader::new(input);
     while let Some(line) = stdin_reader.next_line() {
         if unique_filter(line) {
-            print!("{}", line);
+            output.write(line.as_bytes()).expect("Failed writing line");
         }
     }
 }
