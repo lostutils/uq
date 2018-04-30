@@ -1,7 +1,10 @@
 extern crate clap;
 use clap::{App, Arg};
 
-use std::collections::{HashSet, VecDeque};
+extern crate fxhash;
+use fxhash::FxHashSet;
+
+use std::collections::VecDeque;
 use std::io::{BufRead, StdinLock, Write};
 
 struct StdinReader<'a> {
@@ -28,13 +31,13 @@ impl<'a> StdinReader<'a> {
 }
 
 fn unique_filter() -> Box<FnMut(&String) -> bool> {
-    let mut lines: HashSet<String> = HashSet::new();
+    let mut lines = FxHashSet::default();
 
     return Box::new(move |line| lines.insert(line.clone()));
 }
 
 fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&String) -> bool> {
-    let mut lines: HashSet<String> = HashSet::new();
+    let mut lines = FxHashSet::default();
 
     return Box::new(move |line| {
         if lines.insert(line.clone()) {
@@ -48,7 +51,7 @@ fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&String) -> bool> {
 }
 
 fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&String) -> bool> {
-    let mut set = HashSet::new();
+    let mut set = FxHashSet::default();
     let mut queue = VecDeque::new();
 
     return Box::new(move |line| {
