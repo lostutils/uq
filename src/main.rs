@@ -8,21 +8,21 @@ use std::collections::VecDeque;
 use std::io::{BufRead, StdinLock, Write};
 
 struct StdinReader<'a> {
-    buffer: String,
+    buffer: Vec<u8>,
     input: StdinLock<'a>,
 }
 
 impl<'a> StdinReader<'a> {
     fn new(input: StdinLock<'a>) -> Self {
         Self {
-            buffer: String::new(),
+            buffer: Vec::new(),
             input: input,
         }
     }
 
-    fn next_line(&mut self) -> Option<&String> {
+    fn next_line(&mut self) -> Option<&Vec<u8>> {
         self.buffer.clear();
-        match self.input.read_line(&mut self.buffer) {
+        match self.input.read_until(b'\n', &mut self.buffer) {
             Ok(0) => None,
             Ok(_) => Some(&self.buffer),
             Err(e) => panic!("Failed reading line: {}", e),
@@ -30,13 +30,13 @@ impl<'a> StdinReader<'a> {
     }
 }
 
-fn unique_filter() -> Box<FnMut(&String) -> bool> {
+fn unique_filter() -> Box<FnMut(&Vec<u8>) -> bool> {
     let mut lines = FxHashSet::default();
 
     return Box::new(move |line| lines.insert(line.clone()));
 }
 
-fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&String) -> bool> {
+fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
     let mut lines = FxHashSet::default();
 
     return Box::new(move |line| {
@@ -50,7 +50,7 @@ fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&String) -> bool> {
     });
 }
 
-fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&String) -> bool> {
+fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
     let mut set = FxHashSet::default();
     let mut queue = VecDeque::new();
 
@@ -106,7 +106,7 @@ fn main() {
     let mut stdin_reader = StdinReader::new(input);
     while let Some(line) = stdin_reader.next_line() {
         if unique_filter(line) {
-            output.write(line.as_bytes()).expect("Failed writing line");
+            output.write(line).expect("Failed writing line");
         }
     }
 }
