@@ -11,6 +11,9 @@ readme = "README.md"
 clap = "2.29.2"
 fxhash = "0.2"
 
+[profile.release]
+lto = true
+
 [[bin]]
 name = "uq"
 path = "src/main.rs"
