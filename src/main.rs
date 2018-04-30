@@ -33,38 +33,40 @@ impl<'a> StdinReader<'a> {
 fn unique_filter() -> Box<FnMut(&Vec<u8>) -> bool> {
     let mut lines = FxHashSet::default();
 
-    return Box::new(move |line| lines.insert(line.clone()));
+    Box::new(move |line| lines.insert(line.clone()))
 }
 
 fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
     let mut lines = FxHashSet::default();
 
-    return Box::new(move |line| {
+    Box::new(move |line| {
         if lines.insert(line.clone()) {
             if lines.len() > capacity {
                 panic!("Cache capacity exceeded!");
             }
-            return true;
+            true
+        } else {
+            false
         }
-        return false;
-    });
+    })
 }
 
 fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
     let mut set = FxHashSet::default();
     let mut queue = VecDeque::new();
 
-    return Box::new(move |line| {
+    Box::new(move |line| {
         if set.insert(line.clone()) {
             if set.len() > capacity {
                 set.remove(&queue.pop_front().unwrap());
             }
 
             queue.push_back(line.clone());
-            return true;
+            true
+        } else {
+            false
         }
-        return false;
-    });
+    })
 }
 
 fn main() {
