@@ -108,7 +108,7 @@ fn main() {
     let mut stdin_reader = StdinReader::new(input);
     while let Some(line) = stdin_reader.next_line() {
         if unique_filter(line) {
-            output.write(line).expect("Failed writing line");
+            output.write_all(line).expect("Failed writing line");
         }
     }
 }
