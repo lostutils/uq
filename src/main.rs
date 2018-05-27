@@ -79,6 +79,31 @@ fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> 
     })
 }
 
+struct IncludeFilter {
+    re: Regex,
+}
+
+impl IncludeFilter {
+    fn new(regex: &str) -> Self {
+        IncludeFilter {
+            re: Regex::new(regex).unwrap()
+        }
+    }
+
+    fn filter(&self, line: &[u8]) -> Vec<u8> {
+        let mut x: Vec<u8> = Vec::new();
+        for match_str in self.re.captures(line).unwrap().iter().dropping(1).filter_map(|opt_match| match opt_match {
+            Some(m) => Some(m.as_bytes()),
+            None => None,
+        }) {
+            println!("match_str: {:?}", &match_str);
+            x.extend(match_str);
+        }
+
+        x
+    }
+}
+
 fn main() {
     let matches = App::new("uq (lostutils)")
         .arg(
@@ -126,17 +151,9 @@ fn main() {
     let mut stdin_reader = StdinReader::new(input);
     if let Some(include) = Some(r"(\d+)") {
 //    if let Some(include) = matches.value_of("include") {
-        let re = Regex::new(include.clone()).unwrap();
+        let include_filter = IncludeFilter::new(include);
         while let Some(line) = stdin_reader.next_line() {
-            let mut x: Vec<u8> = Vec::new();
-            for match_str in re.captures(line).unwrap().iter().dropping(1).filter_map(|opt_match| match opt_match {
-                Some(m) => Some(m.as_bytes()),
-                None => None,
-            }) {
-
-            println!("match_str: {:?}", &match_str);
-                x.extend(match_str);
-            }
+            let x = include_filter.filter(&line);
             println!("Bla: {:?}", &x);
             if unique_filter(&x) {
                 output.write_all(line).expect("Failed writing line");
