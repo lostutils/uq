@@ -1,63 +1,72 @@
 extern crate clap;
 use clap::{App, Arg};
 
-use std::collections::{HashSet, VecDeque};
+extern crate fxhash;
+use fxhash::FxHashSet;
 
-struct StdinReader;
+use std::collections::VecDeque;
+use std::io::{BufRead, StdinLock, Write};
 
-impl Iterator for StdinReader {
-    type Item = String;
+struct StdinReader<'a> {
+    buffer: Vec<u8>,
+    input: StdinLock<'a>,
+}
 
-    fn next(&mut self) -> Option<String> {
-        let mut line = String::new();
+impl<'a> StdinReader<'a> {
+    fn new(input: StdinLock<'a>) -> Self {
+        Self {
+            buffer: Vec::new(),
+            input: input,
+        }
+    }
 
-        match std::io::stdin().read_line(&mut line) {
+    fn next_line(&mut self) -> Option<&Vec<u8>> {
+        self.buffer.clear();
+        match self.input.read_until(b'\n', &mut self.buffer) {
             Ok(0) => None,
-            Ok(_) => Some(line),
+            Ok(_) => Some(&self.buffer),
             Err(e) => panic!("Failed reading line: {}", e),
         }
     }
 }
 
-fn stdin_reader() -> StdinReader {
-    StdinReader {}
+fn unique_filter() -> Box<FnMut(&Vec<u8>) -> bool> {
+    let mut lines = FxHashSet::default();
+
+    Box::new(move |line| lines.insert(line.clone()))
 }
 
-fn unique_filter() -> Box<FnMut(&String) -> bool> {
-    let mut lines: HashSet<String> = HashSet::new();
+fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
+    let mut lines = FxHashSet::default();
 
-    return Box::new(move |line| lines.insert(line.clone()));
-}
-
-fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&String) -> bool> {
-    let mut lines: HashSet<String> = HashSet::new();
-
-    return Box::new(move |line| {
+    Box::new(move |line| {
         if lines.insert(line.clone()) {
             if lines.len() > capacity {
                 panic!("Cache capacity exceeded!");
             }
-            return true;
+            true
+        } else {
+            false
         }
-        return false;
-    });
+    })
 }
 
-fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&String) -> bool> {
-    let mut set = HashSet::new();
+fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
+    let mut set = FxHashSet::default();
     let mut queue = VecDeque::new();
 
-    return Box::new(move |line| {
+    Box::new(move |line| {
         if set.insert(line.clone()) {
             if set.len() > capacity {
                 set.remove(&queue.pop_front().unwrap());
             }
 
             queue.push_back(line.clone());
-            return true;
+            true
+        } else {
+            false
         }
-        return false;
-    });
+    })
 }
 
 fn main() {
@@ -93,7 +102,13 @@ fn main() {
         _ => unique_filter(),
     };
 
-    for line in stdin_reader().filter(|line| unique_filter(&line)) {
-        print!("{}", line);
+    let (_in, _out) = (std::io::stdin(), std::io::stdout());
+    let (input, mut output) = (_in.lock(), _out.lock());
+
+    let mut stdin_reader = StdinReader::new(input);
+    while let Some(line) = stdin_reader.next_line() {
+        if unique_filter(line) {
+            output.write_all(line).expect("Failed writing line");
+        }
     }
 }
