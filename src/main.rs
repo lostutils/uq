@@ -104,6 +104,47 @@ impl IncludeFilter {
     }
 }
 
+trait LineFilter {
+    fn apply(&self, line: &[u8]) -> Vec<u8>;
+}
+
+impl LineFilter for IncludeFilter {
+    fn apply(&self, line: &[u8]) -> Vec<u8> {
+        self.filter(line)
+    }
+}
+
+struct EmptyFilter;
+
+impl LineFilter for EmptyFilter {
+    fn apply(&self, line: &[u8]) -> Vec<u8> {
+        line.to_vec()
+    }
+}
+
+struct FilterList {
+    filters: Vec<Box<LineFilter>>,
+}
+
+impl FilterList {
+    fn new() -> Self {
+        FilterList { filters: Vec::new() }
+    }
+
+    fn add_filter(&mut self, filter: Box<LineFilter>) {
+        self.filters.push(filter);
+    }
+
+    fn apply(&self, line: &[u8]) -> Vec<u8> {
+        let mut line = line.to_vec();
+        for filter in &self.filters {
+            line = filter.apply(&line);
+        }
+
+        line
+    }
+}
+
 fn main() {
     let matches = App::new("uq (lostutils)")
         .arg(
@@ -148,22 +189,20 @@ fn main() {
     let (_in, _out) = (std::io::stdin(), std::io::stdout());
     let (input, mut output) = (_in.lock(), _out.lock());
 
+    let mut filter_list = FilterList::new();
+
     let mut stdin_reader = StdinReader::new(input);
     if let Some(include) = Some(r"(\d+)") {
 //    if let Some(include) = matches.value_of("include") {
         let include_filter = IncludeFilter::new(include);
-        while let Some(line) = stdin_reader.next_line() {
-            let x = include_filter.filter(&line);
-            println!("Bla: {:?}", &x);
-            if unique_filter(&x) {
-                output.write_all(line).expect("Failed writing line");
-            }
-        }
-    } else {
-        while let Some(line) = stdin_reader.next_line() {
-            if unique_filter(line) {
-                output.write_all(line).expect("Failed writing line");
-            }
+        filter_list.add_filter(Box::new(include_filter));
+    }
+
+    while let Some(line) = stdin_reader.next_line() {
+        let filtered_line = &filter_list.apply(line);
+        println!("Bla: {:?}", &filtered_line);
+        if unique_filter(&filtered_line) {
+            output.write_all(line).expect("Failed writing line");
         }
     }
 }
