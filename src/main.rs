@@ -1,21 +1,29 @@
 extern crate clap;
+extern crate fxhash;
+extern crate regex;
+extern crate itertools;
+extern crate failure;
+
+#[macro_use]
+extern crate failure_derive;
+#[macro_use]
+extern crate serde_derive;
 
 use clap::{App, Arg};
-
-extern crate fxhash;
-
 use fxhash::FxHashSet;
-
-extern crate regex;
-
 use regex::bytes::Regex;
-
-extern crate itertools;
-
 use itertools::Itertools;
-
 use std::collections::VecDeque;
 use std::io::{BufRead, StdinLock, Write};
+use failure::Error;
+
+#[derive(Debug, Fail)]
+enum UqError {
+    #[fail(display = "invalid regular expression: {}", regex)]
+    InvalidRegex {
+        regex: String,
+    },
+}
 
 struct StdinReader<'a> {
     buffer: Vec<u8>,
@@ -84,9 +92,10 @@ struct IncludeFilter {
 }
 
 impl IncludeFilter {
-    fn new(regex: &str) -> Self {
-        IncludeFilter {
-            re: Regex::new(regex).unwrap()
+    fn new(regex: &str) -> Result<Self, UqError> {
+        match Regex::new(regex) {
+            Ok(re) => Ok(IncludeFilter { re }),
+            Err(_) => Err(UqError::InvalidRegex { regex: regex.to_string() }),
         }
     }
 
@@ -145,7 +154,7 @@ impl FilterList {
     }
 }
 
-fn main() {
+fn main() -> Result<(), UqError> {
     let matches = App::new("uq (lostutils)")
         .arg(
             Arg::with_name("capacity")
@@ -192,9 +201,9 @@ fn main() {
     let mut filter_list = FilterList::new();
 
     let mut stdin_reader = StdinReader::new(input);
-    if let Some(include) = Some(r"(\d+)") {
+    if let Some(include) = Some(r"((\d+)") {
 //    if let Some(include) = matches.value_of("include") {
-        let include_filter = IncludeFilter::new(include);
+        let include_filter = IncludeFilter::new(include)?;
         filter_list.add_filter(Box::new(include_filter));
     }
 
@@ -205,4 +214,6 @@ fn main() {
             output.write_all(line).expect("Failed writing line");
         }
     }
+
+    Ok(())
 }
