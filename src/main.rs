@@ -184,15 +184,19 @@ fn main() -> Result<(), UqError> {
     };
 
     while let Some(line) = stdin_reader.next_line() {
-        let filtered_line = match &filter {
-            Some(filter) => filter.apply(&line),
-            None => Some(line.clone()),
+        let is_unique = if let Some(filter) = &filter {
+            if let Some(line) = filter.apply(line) {
+                unique_filter(&line)
+            } else {
+                false
+            }
+        } else {
+            unique_filter(&line)
         };
 
-        if let Some(filtered_line) = filtered_line {
-            if unique_filter(&filtered_line) {
-                output.write_all(line).expect("Failed writing line");
-            }
+
+        if is_unique {
+            output.write_all(line).expect("Failed writing line");
         }
     }
 
