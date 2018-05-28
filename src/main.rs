@@ -48,44 +48,76 @@ impl<'a> StdinReader<'a> {
     }
 }
 
-fn unique_filter() -> Box<FnMut(&Vec<u8>) -> bool> {
-    let mut lines = FxHashSet::default();
-
-    Box::new(move |line| lines.insert(line.clone()))
+trait UniqueSet<T> {
+    fn insert(&mut self, value: T) -> bool;
 }
 
-fn unique_filter_with_cap(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
-    let mut lines = FxHashSet::default();
+impl UniqueSet<Vec<u8>> for FxHashSet<Vec<u8>> {
+    fn insert(&mut self, value: Vec<u8>) -> bool {
+        self.insert(value)
+    }
+}
 
-    Box::new(move |line| {
-        if lines.insert(line.clone()) {
-            if lines.len() > capacity {
+
+struct UniqueWithCap {
+    lines: FxHashSet<Vec<u8>>,
+    cap: usize,
+}
+
+impl UniqueWithCap {
+    fn new(cap: usize) -> Self {
+        UniqueWithCap {
+            lines: FxHashSet::default(),
+            cap,
+        }
+    }
+}
+
+impl UniqueSet<Vec<u8>> for UniqueWithCap {
+    fn insert(&mut self, value: Vec<u8>) -> bool {
+        if self.lines.insert(value) {
+            if self.lines.len() > self.cap {
                 panic!("Cache capacity exceeded!");
             }
             true
         } else {
             false
         }
-    })
+    }
 }
 
-fn unique_filter_with_override(capacity: usize) -> Box<FnMut(&Vec<u8>) -> bool> {
-    let mut set = FxHashSet::default();
-    let mut queue = VecDeque::new();
+struct UniqueWithOverride {
+    set: FxHashSet<Vec<u8>>,
+    queue: VecDeque<Vec<u8>>,
+    cap: usize,
+}
 
-    Box::new(move |line| {
-        if set.insert(line.clone()) {
-            if set.len() > capacity {
-                set.remove(&queue.pop_front().unwrap());
+impl UniqueWithOverride {
+    fn new(cap: usize) -> Self {
+        UniqueWithOverride {
+            set: FxHashSet::default(),
+            queue: VecDeque::new(),
+            cap,
+        }
+    }
+}
+
+
+impl UniqueSet<Vec<u8>> for UniqueWithOverride {
+    fn insert(&mut self, value: Vec<u8>) -> bool {
+        if self.set.insert(value.clone()) {
+            if self.set.len() > self.cap {
+                self.set.remove(&self.queue.pop_front().unwrap());
             }
 
-            queue.push_back(line.clone());
+            self.queue.push_back(value);
             true
         } else {
             false
         }
-    })
+    }
 }
+
 
 struct IncludeFilter {
     re: Regex,
@@ -167,10 +199,10 @@ fn main() -> Result<(), UqError> {
         None => None,
     };
 
-    let mut unique_filter = match (capacity, matches.is_present("override")) {
-        (Some(capacity), true) => unique_filter_with_override(capacity),
-        (Some(capacity), false) => unique_filter_with_cap(capacity),
-        _ => unique_filter(),
+    let mut unique_filter: Box<UniqueSet<Vec<u8>>> = match (capacity, matches.is_present("override")) {
+        (Some(capacity), true) => Box::new(UniqueWithOverride::new(capacity)),
+        (Some(capacity), false) => Box::new(UniqueWithCap::new(capacity)),
+        _ => Box::new(FxHashSet::default()),
     };
 
 
@@ -186,12 +218,12 @@ fn main() -> Result<(), UqError> {
     while let Some(line) = stdin_reader.next_line() {
         let is_unique = if let Some(filter) = &filter {
             if let Some(line) = filter.apply(line) {
-                unique_filter(&line)
+                unique_filter.insert(line.clone())
             } else {
                 false
             }
         } else {
-            unique_filter(&line)
+            unique_filter.insert(line.clone())
         };
 
 
