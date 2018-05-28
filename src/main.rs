@@ -99,60 +99,39 @@ impl IncludeFilter {
         }
     }
 
-    fn filter(&self, line: &[u8]) -> Vec<u8> {
+    fn filter(&self, line: &[u8]) -> Option<Vec<u8>> {
         let mut x: Vec<u8> = Vec::new();
-        for match_str in self.re.captures(line).unwrap().iter().dropping(1).filter_map(|opt_match| match opt_match {
-            Some(m) => Some(m.as_bytes()),
-            None => None,
-        }) {
-            println!("match_str: {:?}", &match_str);
-            x.extend(match_str);
-        }
+        if let Some(captures) = self.re.captures(line) {
+            let iter = if captures.len() == 1 {
+                captures.iter()
+            } else {
+                captures.iter().dropping(1)
+            };
 
-        x
+            for match_str in iter.filter_map(|opt_match| match opt_match {
+                Some(m) => Some(m.as_bytes()),
+                None => None,
+            }) {
+                x.extend(match_str);
+            }
+
+            Some(x)
+        } else {
+            None
+        }
     }
 }
 
 trait LineFilter {
-    fn apply(&self, line: &[u8]) -> Vec<u8>;
+    fn apply(&self, line: &[u8]) -> Option<Vec<u8>>;
 }
 
 impl LineFilter for IncludeFilter {
-    fn apply(&self, line: &[u8]) -> Vec<u8> {
+    fn apply(&self, line: &[u8]) -> Option<Vec<u8>> {
         self.filter(line)
     }
 }
 
-struct EmptyFilter;
-
-impl LineFilter for EmptyFilter {
-    fn apply(&self, line: &[u8]) -> Vec<u8> {
-        line.to_vec()
-    }
-}
-
-struct FilterList {
-    filters: Vec<Box<LineFilter>>,
-}
-
-impl FilterList {
-    fn new() -> Self {
-        FilterList { filters: Vec::new() }
-    }
-
-    fn add_filter(&mut self, filter: Box<LineFilter>) {
-        self.filters.push(filter);
-    }
-
-    fn apply(&self, line: &[u8]) -> Vec<u8> {
-        let mut line = line.to_vec();
-        for filter in &self.filters {
-            line = filter.apply(&line);
-        }
-
-        line
-    }
-}
 
 fn main() -> Result<(), UqError> {
     let matches = App::new("uq (lostutils)")
@@ -198,20 +177,22 @@ fn main() -> Result<(), UqError> {
     let (_in, _out) = (std::io::stdin(), std::io::stdout());
     let (input, mut output) = (_in.lock(), _out.lock());
 
-    let mut filter_list = FilterList::new();
-
     let mut stdin_reader = StdinReader::new(input);
-    if let Some(include) = Some(r"((\d+)") {
-//    if let Some(include) = matches.value_of("include") {
-        let include_filter = IncludeFilter::new(include)?;
-        filter_list.add_filter(Box::new(include_filter));
-    }
+    let filter = match matches.value_of("include") {
+        Some(include) => Some(IncludeFilter::new(include)?),
+        None => None,
+    };
 
     while let Some(line) = stdin_reader.next_line() {
-        let filtered_line = &filter_list.apply(line);
-        println!("Bla: {:?}", &filtered_line);
-        if unique_filter(&filtered_line) {
-            output.write_all(line).expect("Failed writing line");
+        let filtered_line = match &filter {
+            Some(filter) => filter.apply(&line),
+            None => Some(line.clone()),
+        };
+
+        if let Some(filtered_line) = filtered_line {
+            if unique_filter(&filtered_line) {
+                output.write_all(line).expect("Failed writing line");
+            }
         }
     }
 
