@@ -183,7 +183,7 @@ impl LineFilter for IncludeFilter {
 }
 
 impl LineFilter for ExcludeFilter {
-    fn apply(&self, line:&[u8]) -> Option<Vec<u8>> {
+    fn apply(&self, line: &[u8]) -> Option<Vec<u8>> {
         self.filter(line)
     }
 }
@@ -243,25 +243,23 @@ fn main() -> Result<(), UqError> {
 
     let mut stdin_reader = StdinReader::new(input);
 
-    let filter: Option<Box<LineFilter>> = match matches.value_of("include") {
-        Some(include) => Some(Box::new(IncludeFilter::new(include)?)),
-        None => None,
+    let filter: Option<Box<LineFilter>> = match (matches.value_of("include"),
+                                                 matches.value_of("exclude")) {
+        (Some(include), _) => Some(Box::new(IncludeFilter::new(include)?)),
+        (_, Some(exclude)) => Some(Box::new(ExcludeFilter::new(exclude)?)),
+        _ => None,
     };
 
-    let filter: Option<Box<LineFilter>> = match matches.value_of("exclude") {
-        Some(exclude) => Some(Box::new(ExcludeFilter::new(exclude)?)),
-        None => filter,
-    };
 
     while let Some(line) = stdin_reader.next_line() {
-        let is_unique = if let Some(filter) = &filter {
-            if let Some(line) = filter.apply(line) {
-                unique_filter.insert(line.clone())
-            } else {
-                false
-            }
-        } else {
-            unique_filter.insert(line.clone())
+        let is_unique = match &filter {
+            Some(filter) =>
+                match filter.apply(line) {
+                    Some(line) => unique_filter.insert(line.clone()),
+                    None => false,
+                }
+            None =>
+                unique_filter.insert(line.clone()),
         };
 
 
