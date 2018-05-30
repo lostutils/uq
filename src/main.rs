@@ -154,12 +154,36 @@ impl IncludeFilter {
     }
 }
 
+
+struct ExcludeFilter {
+    re: Regex,
+}
+
+impl ExcludeFilter {
+    fn new(regex: &str) -> Result<Self, UqError> {
+        match Regex::new(regex) {
+            Ok(re) => Ok(ExcludeFilter { re }),
+            Err(_) => Err(UqError::InvalidRegex { regex: regex.to_string() }),
+        }
+    }
+
+    fn filter(&self, line: &[u8]) -> Option<Vec<u8>> {
+        Some(self.re.replace_all(line, &b""[..]).to_vec())
+    }
+}
+
 trait LineFilter {
     fn apply(&self, line: &[u8]) -> Option<Vec<u8>>;
 }
 
 impl LineFilter for IncludeFilter {
     fn apply(&self, line: &[u8]) -> Option<Vec<u8>> {
+        self.filter(line)
+    }
+}
+
+impl LineFilter for ExcludeFilter {
+    fn apply(&self, line:&[u8]) -> Option<Vec<u8>> {
         self.filter(line)
     }
 }
@@ -189,6 +213,14 @@ fn main() -> Result<(), UqError> {
                 .value_name("include")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("exclude")
+                .long("exclude")
+                .help("Regex capture to exclude for matching")
+                .value_name("exclude")
+                .conflicts_with("include")
+                .takes_value(true),
+        )
         .get_matches();
 
     let capacity = match matches.value_of("capacity") {
@@ -210,9 +242,15 @@ fn main() -> Result<(), UqError> {
     let (input, mut output) = (_in.lock(), _out.lock());
 
     let mut stdin_reader = StdinReader::new(input);
-    let filter = match matches.value_of("include") {
-        Some(include) => Some(IncludeFilter::new(include)?),
+
+    let filter: Option<Box<LineFilter>> = match matches.value_of("include") {
+        Some(include) => Some(Box::new(IncludeFilter::new(include)?)),
         None => None,
+    };
+
+    let filter: Option<Box<LineFilter>> = match matches.value_of("exclude") {
+        Some(exclude) => Some(Box::new(ExcludeFilter::new(exclude)?)),
+        None => filter,
     };
 
     while let Some(line) = stdin_reader.next_line() {
